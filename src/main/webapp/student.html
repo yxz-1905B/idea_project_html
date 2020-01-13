@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>学生信息</title>
+
+    <!-- jquery -->
+    <script src="js/jquery/jquery-3.3.1.min.js"></script>
+
+    <!-- bootstrap -->
+    <link rel="stylesheet" href="js/jquery-bootstrap/css/bootstrap.css">
+    <script src="js/jquery-bootstrap/js/bootstrap.js"></script>
+
+    <!-- bootBox -->
+    <link rel="stylesheet" href="js/bootstrap-bootbox/animate.css">
+    <script src="js/bootstrap-bootbox/bootbox.min.js"></script>
+
+    <!-- fileInput -->
+    <link rel="stylesheet" href="js/bootstrap-fileinput/css/fileinput.css">
+    <script src="js/bootstrap-fileinput/js/fileinput.js"></script>
+
+    <!-- datetimepicker -->
+    <link rel="stylesheet" href="js/bootstrap-datetimepicker/css/bootstrap-datetimepicker.css">
+    <script src="js/bootstrap-datetimepicker/js/bootstrap-datetimepicker.js"></script>
+    <script src="js/bootstrap-datetimepicker/js/locales/bootstrap-datetimepicker.zh-CN.js"></script>
+
+    <!-- dataTables -->
+    <link rel="stylesheet" href="js/jquery-datatables/css/jquery.dataTables.min.css">
+    <script src="js/jquery-datatables/js/jquery.dataTables.min.js"></script>
+
+    <!-- dateFormat -->
+    <script src="js/dateformat/dateFormat.js"></script>
+
+
+</head>
+<script>
+    $(function () {
+        initTableDatas();
+    })
+
+    var tableShow;
+    function initTableDatas(){
+        tableShow=$('#tables').DataTable({
+            "serverSide": true,//开启服务端分页
+            ajax: {
+                url: 'http://localhost:8080/student/queryStudentData',
+                type: 'POST'
+            },
+            language: {//国际化
+                "sProcessing": "处理中...",
+                "sLengthMenu": "每页 _MENU_ 条数据",
+                "sZeroRecords": "没有匹配结果",
+                "sInfo": "显示第 _START_ 至 _END_ 项结果，共 _TOTAL_ 项",
+                "sInfoEmpty": "显示第 0 至 0 项结果，共 0 项",
+                "sInfoFiltered": "(由 _MAX_ 项结果过滤)",
+                "sInfoPostFix": "",
+                "sSearch": "搜索:",
+                "sUrl": "",
+                "sEmptyTable": "表中数据为空",
+                "sLoadingRecords": "载入中...",
+                "sInfoThousands": ",",
+                "oPaginate": {
+                    "sFirst": "首页",
+                    "sPrevious": "上页",
+                    "sNext": "下页",
+                    "sLast": "末页"
+                },
+                "oAria": {
+                    "sSortAscending": ": 以升序排列此列",
+                    "sSortDescending": ": 以降序排列此列"
+                }
+            },
+
+            ordering:false,//是否启用排序
+            searching: false,//是否启用搜索
+            lengthMenu:[3,5,7],
+            columns: [
+
+                {title:'学生ID', data: 'id' },
+
+                {title:'学生姓名', data: 'name' },
+
+                {title:'头像', data: 'imgPath', "render": function(data,type,row,meta){
+                        var img = '<img src="http://localhost:8080/'+data+'" width="50px">';
+                        return img;
+                    }},
+
+                {title:'年龄', data: 'age' },
+
+                {title:'生日', data: 'birthday', "render": function(data,type,row,meta){
+                        var date = new Date(data);
+                        var time = date.Format("yyyy-MM-dd");
+                        return time;
+                    }},
+
+                {title:'地址', data: 'address' },
+
+                {title:'录入IP', data: 'ip' },
+
+                {title:'操作', data: 'id', "render": function(data,type,row,meta){
+                        var btn='<button class="btn btn-warning" onclick="toUpdate('+data+')">修改</button> <button class="btn btn-danger" onclick="delStudent('+data+')">删除</button>';
+                        return btn;
+                    }}
+            ]
+
+        });
+    }
+    
+    function search() {
+        var name = $("#searchName").val();
+        var startDate = $("#startDate").val();
+        var endDate = $("#endDate").val();
+        tableShow.settings()[0].ajax.data = {
+            "name":name,
+            "startDate":startDate,
+            "endDate":endDate
+        };
+        tableShow.ajax.reload();
+    }
+
+    var addBox;
+    function showAddBox() {
+        var html = $("#addDiv").html();
+        addBox = bootbox.dialog({
+            title:'添加信息',
+            message:html
+        });
+
+        $("#addBirthday", addBox).datetimepicker({//选择年月日
+            format: 'yyyy-mm-dd',  //显示格式
+            language: "zh-CN",
+            minView: "decade",   //设置只显示到月份
+            endDate: new Date()
+        });
+
+        $("#img", addBox).fileinput({
+
+            uploadUrl: "http://localhost:8080/student/uploadFile", //上传的地址
+
+            browseClass: "btn btn-success", //按钮样式
+
+            dropZoneEnabled: false,  //是否显示拖拽区域
+
+            showUpload: false, //是否显示上传按钮
+
+            showRemove: false, //是否显示移除按钮
+
+            showCaption: false, //是否显示标题
+
+        }).on("fileuploaded", function (e, data, previewiId, index) {
+            if (data.response.code == 200) {
+                $("#addImg", addBox).val(data.response.data);
+            } else {
+                bootbox.alert("异常："+data.response.info);
+            }
+        });
+
+    }
+
+    function addStudent(){
+        var name = $("#addName",addBox).val();
+        var imgPath = $("#addImg",addBox).val();
+        var birthday = $("#addBirthday",addBox).val();
+        var address = $("#addAddress",addBox).val();
+        $.post({
+           url:"http://localhost:8080/student/addStudent",
+           dataType:"json",
+           data:{
+               "name":name,
+               "imgPath":imgPath,
+               "birthday":birthday,
+               "address":address,
+           },
+           success:function(rs){
+               if(rs.code==200){
+                   bootbox.alert("添加成功");
+                   addBox.modal("hide");
+                   search();
+               }else{
+                   bootbox.alert("添加异常："+rs.info);
+               }
+           },
+           error:function(){
+               bootbox.alert("添加失败");
+           }
+        });
+    }
+
+    var updateBox;
+    function toUpdate(id) {
+        var html = $("#updateDiv").html();
+        updateBox = bootbox.dialog({
+           title:'修改页面',
+           message:html
+        });
+
+        $("#updateBirthday", updateBox).datetimepicker({//选择年月日
+            format: 'yyyy-mm-dd',  //显示格式
+            language: "zh-CN",
+            minView: "decade",   //设置只显示到月份
+            endDate: new Date()
+        });
+
+        $("#updateImg", updateBox).fileinput({
+
+            uploadUrl: "http://localhost:8080/student/uploadFile", //上传的地址
+
+            browseClass: "btn btn-success", //按钮样式
+
+            dropZoneEnabled: false,  //是否显示拖拽区域
+
+            showUpload: false, //是否显示上传按钮
+
+            showRemove: false, //是否显示移除按钮
+
+            showCaption: false, //是否显示标题
+
+        }).on("fileuploaded", function (e, data, previewiId, index) {
+            if (data.response.code == 200) {
+                $("#newImg", updateBox).val(data.response.data);
+            } else {
+                bootbox.alert("异常："+data.response.info);
+            }
+        });
+
+        $.post({
+            url:"http://localhost:8080/student/toUpdate",
+            dataType:"json",
+            data:{
+                "id":id
+            },
+            success:function(rs){
+                if(rs.code==200){
+                    var data = rs.data;
+                    $("#updateId",updateBox).val(data.id);
+                    $("#updateName",updateBox).val(data.name);
+                    $("#oldImg",updateBox).val(data.imgPath);
+                    $("#hxImg",updateBox).attr("src","http://localhost:8080/"+data.imgPath);
+                    var date = new Date(data.birthday);
+                    var time = date.Format("yyyy-MM-dd");
+                    $("#updateBirthday",updateBox).val(time);
+                    $("#updateAddress",updateBox).val(data.address);
+                }else{
+                    bootbox.alert("回显异常："+rs.info);
+                }
+            },
+            error:function(){
+                bootbox.alert("回显失败");
+            }
+        });
+    }
+
+    function updateStudent() {
+        var id = $("#updateId",updateBox).val();
+        var name = $("#updateName",updateBox).val();
+        var imgPath = $("#oldImg",updateBox).val();
+        var newImg = $("#newImg",updateBox).val();
+        var birthday = $("#updateBirthday",updateBox).val();
+        var address = $("#updateAddress",updateBox).val();
+        $.post({
+            url:"http://localhost:8080/student/updateStudent",
+            dataType:"json",
+            data:{
+                "id":id,
+                "name":name,
+                "imgPath":imgPath,
+                "newImg":newImg,
+                "birthday":birthday,
+                "address":address
+            },
+            success:function(rs){
+                if(rs.code==200){
+                    bootbox.alert("修改成功");
+                    updateBox.modal("hide");
+                    search();
+                }else{
+                    bootbox.alert("回显异常："+rs.info);
+                }
+            },
+            error:function(){
+                bootbox.alert("回显失败");
+            }
+        });
+    }
+
+    function delStudent(id) {
+        bootbox.confirm({
+            title: '',
+            message: '确定删除？',
+            buttons: {
+                confirm: {
+                    label: "确定"
+                },
+                cancel: {
+                    label: "取消"
+
+                }
+            },
+            callback: function (result) {
+                if (result) {
+                    $.post({
+                        url: "http://localhost:8080/student/delStudent",
+                        dataType: "json",
+                        data: {
+                            "id": id
+                        },
+                        success: function (rs) {
+                            if (rs.code == 200) {
+                                bootbox.alert("删除成功");
+                                search();
+                            } else {
+                                bootbox.alert("删除异常：" + rs.info);
+                            }
+                        },
+                        error: function () {
+                            bootbox.alert("删除失败");
+                        }
+                    });
+                }
+            }
+        });
+    }
+</script>
+<body>
+<div class="container">
+    <div class="panel panel-info">
+        <div class="panel-heading">
+            <h3 class="panel-title">
+                学生信息
+            </h3>
+        </div>
+        <div class="panel-body">
+            <div class="form-inline">
+                <div class="form-group">
+                    <label class="control-label">学生名称</label>
+                    <input class="form-control" id="searchName">
+                </div>
+                &nbsp&nbsp
+                <div class="form-group">
+                    <label class="control-label">生日</label>
+                    <input class="form-control" id="startDate">
+                    <input class="form-control" id="endDate">
+                </div>
+
+                <input type="button" class="btn btn-info" onclick="search()" value="查询">
+            </div>
+            <br>
+
+            <div class="form-group">
+                <table id="tables" class="table table-bordered table-hover"></table>
+            </div>
+
+            <div class="form-group">
+                <div class="col-sm-4">
+                    <button class="btn btn-success" onclick="showAddBox()">
+                        添加
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 添加 -->
+<div id="addDiv" style="display: none">
+    <div class="panel-body">
+        <form id="addForm" class="form-horizontal">
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">学生名称</label>
+                <div class="col-sm-6">
+                    <input id="addName" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">头像</label>
+                <div class="col-sm-6">
+                    <input id="img" name="imgs" type="file">
+                    <input id="addImg" type="hidden">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">家庭地址</label>
+                <div class="col-sm-6">
+                    <input id="addAddress" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">生日</label>
+                <div class="col-sm-6">
+                    <input id="addBirthday" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="col-sm-offset-8 col-sm-4">
+                    <input type="button" class="btn btn-success" onclick="addStudent()" value="提交">
+                    <input type="reset" class="btn btn-info" value="重置">
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 修改 -->
+<div id="updateDiv" style="display: none">
+    <input type="hidden" id="updateId">
+    <div class="panel-body">
+        <form id="updateForm" class="form-horizontal">
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">学生名称</label>
+                <div class="col-sm-6">
+                    <input id="updateName" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">头像</label>
+                <div class="col-sm-6">
+                    <input id="updateImg" name="imgs" type="file">
+                    <input id="oldImg" type="hidden">
+                    <input id="newImg" type="hidden">
+                    <img src="" width="80px" id="hxImg">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">家庭地址</label>
+                <div class="col-sm-6">
+                    <input id="updateAddress" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label  class="col-sm-4 control-label">生日</label>
+                <div class="col-sm-6">
+                    <input id="updateBirthday" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="col-sm-offset-8 col-sm-4">
+                    <input type="button" class="btn btn-success" onclick="updateStudent()" value="提交">
+                    <input type="reset" class="btn btn-info" value="重置">
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>
