@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>地区信息</title>
+
+    <!-- jquery -->
+    <script src="../js/jquery/jquery-3.3.1.min.js"></script>
+
+    <!-- zTree -->
+    <link rel="stylesheet" href="../js/jquery-zTree/css/zTreeStyle/zTreeStyle.css">
+    <script src="../js/jquery-zTree/js/jquery.ztree.all.min.js"></script>
+
+    <!-- bootstrap -->
+    <link rel="stylesheet" href="../js/jquery-bootstrap/css/bootstrap.css">
+    <script src="../js/jquery-bootstrap/js/bootstrap.js"></script>
+
+    <!-- bootBox -->
+    <link rel="stylesheet" href="../js/bootstrap-bootbox/animate.css">
+    <script src="../js/bootstrap-bootbox/bootbox.min.js"></script>
+
+</head>
+<script>
+    var ztreeObj;
+    var setting={
+        data: {
+            simpleData: {//设置数据源    以及层级关系的
+                enable: true,
+                pIdKey: "pid"
+            },key:{
+                name:"name"
+            }
+
+        },view: {
+            selectedMulti: false
+        },edit: {
+            enable: true,
+            showRenameBtn:false,
+            showRemoveBtn:false,
+        }/*,check: {
+            enable: true,
+            chkStyle: "checkbox",
+            chkboxType: { "Y": "s", "N": "p" }
+        }*/
+    };
+    var data;
+
+    $(function(){
+        initZtree();
+    });
+
+    function initZtree(){
+        //获取数据
+        $.post({
+            // url:"/area/queryAreaList.do",
+            url:"http://localhost:8082/area/queryAreaList",
+            dataType:"json",
+            async:false,
+            success:function(rs){
+                if(rs.code==200){
+                    data=rs.data;
+                    ztreeObj=$.fn.zTree.init($("#ztreeDiv"), setting, data);
+                }else{
+                    bootbox.alert("初始化ztree异常："+rs.info);
+                }
+            },error:function(){
+                bootbox.alert("初始化ztree失败");
+            }
+        });
+    }
+
+    var addBox;
+    function showAddBox() {
+        var nodes = ztreeObj.getSelectedNodes();
+        if(nodes.length!=0){
+            addBox = bootbox.dialog({
+                title:'添加页面',
+                message:'<div class="form-group">' +
+                    '<input type="hidden" id="pid">' +
+                    '<div class="col-sm-10">' +
+                    '<input class="form-control" id="addArea">' +
+                    '</div>' +
+                    '<button class="btn btn-success" onclick="addArea()">提交</button>' +
+                    '</div>'
+            });
+
+            var node = nodes[0];
+            $("#pid",addBox).val(node.id);
+
+        }else{
+            bootbox.alert("请选择一个父节点");
+        }
+
+    }
+
+    function addArea() {
+
+        var name = $("#addArea").val();
+        var pid = $("#pid").val();
+        $.post({
+           url:"http://localhost:8082/area/addArea",
+           data:{
+               "name":name,
+                "pid":pid
+           },
+           success:function(rs){
+               if(rs.code==200){
+                   bootbox.alert("地区添加成功");
+                   addBox.modal("hide");
+                   initZtree();
+               }else{
+                   bootbox.alert("地区添加异常："+rs.info);
+               }
+           },
+           error:function(){
+               bootbox.alert("地区添加失败");
+           }
+        });
+    }
+
+    function delArea() {
+        //获取被选中的节点集合
+        var nodes = ztreeObj.getSelectedNodes();
+
+        if(nodes.length!=0){
+            //拼接要删除的id
+            var ids = ',';
+            //将 zTree 使用的标准 JSON 嵌套格式的数据转换为简单 Array 格式。
+            //(免去用户自行编写递归遍历全部节点的麻烦)
+            var nodeArr = ztreeObj.transformToArray(nodes[0]);
+            for (var i = 0; i < nodeArr.length; i++) {
+                ids += nodeArr[i].id+',';
+            }
+            ids = ids.substring(1,ids.length-1);
+            alert(ids);
+            bootbox.confirm({
+                title : '',
+                message: '确定删除',
+                buttons: {
+                    confirm: {
+                        label: "确定"
+                    },
+                    cancel:{
+                        label:"取消"
+
+                    }
+                },
+                callback: function(result) {
+                    if(result) {
+                        $.post({
+                            url:"http://localhost:8082/area/delArea",
+                            data:{
+                                "ids":ids
+                            },
+                            success:function(rs){
+                                if(rs.code==200){
+                                    bootbox.alert("地区删除成功");
+                                    initZtree();
+                                }else{
+                                    bootbox.alert("地区删除异常："+rs.info);
+                                }
+                            },
+                            error:function(){
+                                bootbox.alert("地区删除失败");
+                            }
+                        });
+                    }
+                }
+
+            });
+        }else{
+            bootbox.alert("请至少选择一项");
+        }
+    }
+
+    function exportExcel() {
+        location.href = 'http://localhost:8082/area/exportExcel';
+    }
+
+</script>
+<body>
+<div class="container">
+    <div id="ztreeDiv" class="ztree"></div>
+    <button class="btn btn-primary" onclick="showAddBox()">添加</button>
+    <button class="btn btn-danger" onclick="delArea()">删除</button>
+    <button class="btn btn-warning" onclick="exportExcel()">下载</button>
+</div>
+
+</body>
+</html>
